@@ -9,8 +9,6 @@ sns.set_style("darkgrid")
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-from sklearn.neighbors import NearestNeighbors
-
 """
 def AND(f1, f2):
     return lambda x,y,z: f1(x,y,z) + f2(x,y,z) - np.sqrt(f1(x,y,z)**2 + f2(x,y,z)**2)
@@ -54,20 +52,6 @@ def K_neighbor(points, p, k):
     sorted_index = np.argsort(distances)
 
     return sorted_index[:k]
-
-def K_neighbor2(points, k):
-    # scikit-learnより全ての点群のk近傍のインデックスを受け取る
-    nn = NearestNeighbors(n_neighbors=k+1)
-    nn.fit(points)
-    _, indices = nn.kneighbors(points)
-
-    # 自分もk近傍に含んじゃってるので自分を消す処理
-    mask = indices != np.arange(indices.shape[0])[:,np.newaxis]
-    mask[:,-1] &= np.logical_not(mask.all(axis=1))
-    shape = (indices.shape[0], indices.shape[1] - 1)
-
-    return indices[mask].reshape(shape)
-
 
 #点群データなどをx, y, zに分解する
 

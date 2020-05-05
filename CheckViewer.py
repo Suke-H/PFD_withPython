@@ -72,7 +72,6 @@ def ViewTest(points3d, trueIndex,  # 点群
             para2d, fig_type, plane_para, u, v, O, AABB2d, # 正解図形
             opti_para2d, opti_fig_type, opti_plane_para, opti_u, opti_v, opti_O, opti_AABB2d): # 検出図形
 
-    
     # プロット
     fig = plt.figure()
     ax = Axes3D(fig)
@@ -115,13 +114,9 @@ def ViewTest(points3d, trueIndex,  # 点群
     ax.plot([opti_center[0]], [opti_center[1]], [opti_center[2]], marker="o", linestyle='None', color="dodgerblue")
 
     plt.show()
-    plt.close()
-
-    return np.linalg.norm(center-opti_center)*1000
-
-    
+    plt.close()   
 
 # CheckView(0, "data/dataset/3D/SET_NOISE/1/", "data/EntireTest/SET_NOISE/1/", 0, 0)
 
 # CheckView("data/基本形/dataset/triangle/1/", "data/基本形/result/triangle/2000/", miss_list=[])
-CheckView("data/ノイズ/dataset/circle_noise/5/", "data/ノイズ/result/circle_noise/5/", miss_list=[])
+# CheckView("data/ノイズ/dataset/circle_noise/5/", "data/ノイズ/result/circle_noise/5/", miss_list=[])
