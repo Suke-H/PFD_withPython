@@ -2,23 +2,13 @@ import numpy as np
 import numpy.linalg as LA
 import itertools
 import random
+import time
 
 #seabornはimportしておくだけでもmatplotlibのグラフがきれいになる
 import seaborn as sns
 sns.set_style("darkgrid")
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-
-"""
-def AND(f1, f2):
-    return lambda x,y,z: f1(x,y,z) + f2(x,y,z) - np.sqrt(f1(x,y,z)**2 + f2(x,y,z)**2)
-
-def OR(f1, f2):
-    return lambda x,y,z: f1(x,y,z) + f2(x,y,z) + np.sqrt(f1(x,y,z)**2 + f2(x,y,z)**2)
-
-def NOT(f):
-    return lambda x,y,z: -f(x,y,z)
-"""
 
 def norm(normal):
      #ベクトルが一次元のとき
@@ -42,23 +32,13 @@ def norm(normal):
         norm = np.array([np.full(3, norm[i]) for i in range(len(norm))])
         return normal / norm
 
-
-#pointsからpのk近傍点のindexのリストを返す
-def K_neighbor(points, p, k):
-    #points[i]とpointsの各点とのユークリッド距離を格納
-    distances = np.sum(np.square(points - p), axis=1)
-
-    #距離順でpointsをソートしたときのインデックスを格納
-    sorted_index = np.argsort(distances)
-
-    return sorted_index[:k]
-
-#点群データなどをx, y, zに分解する
-
-#[x1, y1, z1]         [x1, x2, ..., xn]
-#      :        ->    [y1, y2, ..., yn]
-#[xn, yn, zn]         [z1, z2, ..., zn]
-def Disassemble(XYZ):
+def Disassemble3d(XYZ):
+    """
+    点群データなどをx, y, zに分解する
+    [x1, y1, z1]         [x1, x2, ..., xn]
+        :        ->      [y1, y2, ..., yn]
+    [xn, yn, zn]         [z1, z2, ..., zn]
+    """
     XYZ = XYZ.T[:]
     X = XYZ[0, :]
     Y = XYZ[1, :]
@@ -66,7 +46,7 @@ def Disassemble(XYZ):
 
     return X, Y, Z
 
-def line(a, b):
+def line3d(a, b):
     t = np.arange(0, 1, 0.01)
 
     x = a[0]*t + b[0]*(1-t)
@@ -76,7 +56,7 @@ def line(a, b):
     return x, y, z
 
 ###OBB生成####
-def buildOBB(points):
+def buildOBB3d(points):
     #分散共分散行列Sを生成
     S = np.cov(points, rowvar=0, bias=1)
 
@@ -94,7 +74,6 @@ def buildOBB(points):
     #############################################
     u = np.asarray([svd_vector[i] / np.linalg.norm(svd_vector[i]) for i in range(3)])
 
-
     #点群の各点と各固有ベクトルとの内積を取る
     #P V^T = [[p1*v1, p1*v2, p1*v3], ... ,[pN*v1, pN*v2, pN*v3]]
     inner_product = np.dot(points, u.T)
@@ -108,14 +87,6 @@ def buildOBB(points):
     max_xyz_point = np.asarray([u[i]*max_stu_point[i] for i in range(3)])
     min_xyz_point = np.asarray([u[i]*min_stu_point[i] for i in range(3)])
 
-    """
-    max_index = 
-    print(max_index)
-    max_point = np.asarray([points[max_index[i]] for i in range(3)])
-
-    min_index = np.argmin(inner_product, axis=0)
-    min_point = np.asarray([points[min_index[i]] for i in range(3)])
-    """
     #対角線の長さ
     vert_max = min_xyz_point[0] + min_xyz_point[1] + max_xyz_point[2]
     vert_min = max_xyz_point[0] + max_xyz_point[1] + min_xyz_point[2]
@@ -124,7 +95,7 @@ def buildOBB(points):
     return max_xyz_point, min_xyz_point, l
 
 ###AABB生成####
-def buildAABB(points):
+def buildAABB3d(points):
     #なんとこれで終わり
     max_p = np.amax(points, axis=0)
     min_p = np.amin(points, axis=0)
@@ -132,7 +103,6 @@ def buildAABB(points):
     l = np.sqrt((max_p[0]-min_p[0])**2 + (max_p[1]-min_p[1])**2 + (max_p[2]-min_p[2])**2)
 
     return max_p, min_p, l
-    
 
 def MakePoints(fn, bbox=(-2.5,2.5), grid_step=50, down_rate = 0.5, epsilon=0.05):
     #import time
@@ -174,35 +144,8 @@ def MakePoints(fn, bbox=(-2.5,2.5), grid_step=50, down_rate = 0.5, epsilon=0.05)
 
     return points
 
-def ViewerInit(points, X, Y, Z, normals=[]):
-    #グラフの枠を作っていく
-    fig = plt.figure()
-    ax = Axes3D(fig)
-
-    #軸にラベルを付けたいときは書く
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
-
-    #点群を描画
-    ax.plot(X,Y,Z,marker="o",linestyle='None',color="white")
-
-    """
-    if len(normals) != 0:
-        #法線を描画
-        U, V, W = Disassemble(normals)
-        ax.quiver(X, Y, Z, U, V, W,  length=0.1, normalize=True, color="blue")
-    """
-
-    max_p, min_p, _ = buildOBB(points)
-
-    #OBBを描画
-    OBBViewer(ax, max_p, min_p)
-
-    return ax
-
 #点群を入力としてOBBを描画する
-def OBBViewer(ax, max_p, min_p):
+def OBBViewer3d(ax, max_p, min_p):
 
     #直積：[smax, smin]*[tmax, tmin]*[umax, umin] <=> 頂点
     s_axis = np.vstack((max_p[0], min_p[0]))
@@ -229,8 +172,8 @@ def OBBViewer(ax, max_p, min_p):
     vert_min = max_p[0] + max_p[1] + min_p[2]
 
     #xyzに分解
-    Xmax, Ymax, Zmax = Disassemble(max_p)
-    Xmin, Ymin, Zmin = Disassemble(min_p)
+    Xmax, Ymax, Zmax = Disassemble3d(max_p)
+    Xmin, Ymin, Zmin = Disassemble3d(min_p)
 
 
     #頂点なども描画
@@ -239,7 +182,7 @@ def OBBViewer(ax, max_p, min_p):
     ax.plot([vert_max[0], vert_min[0]],[vert_max[1], vert_min[1]],[vert_max[2], vert_min[2]],marker="o",linestyle="None",color="black")
 
 #点群を入力としてAABBを描画する
-def AABBViewer(ax, max_p, min_p):
+def AABBViewer3d(ax, max_p, min_p):
 
     # [xmax, xmin]と[ymax, ymin]の直積 <=> 頂点
     x_axis = [max_p[0], min_p[0]]
@@ -271,7 +214,7 @@ def LabelViewer(ax, points, label_list, max_label):
 
     # ラベルなしの点群を白でプロット
 
-    X, Y, Z = Disassemble(points[np.where(label_list == 0)])
+    X, Y, Z = Disassemble3d(points[np.where(label_list == 0)])
     ax.plot(X, Y, Z, marker=".",linestyle="None",color="white")
 
 
@@ -282,7 +225,7 @@ def LabelViewer(ax, points, label_list, max_label):
         print("{}:{}".format(i, same_label_points.shape[0]))
 
         #plot
-        X, Y, Z = Disassemble(same_label_points)
+        X, Y, Z = Disassemble3d(same_label_points)
         if i == max_label:       
             ax.plot(X, Y, Z, marker="o",linestyle="None",color=colorlist[i%len(colorlist)])
         else:
@@ -291,11 +234,11 @@ def LabelViewer(ax, points, label_list, max_label):
 #陰関数のグラフ描画
 #fn  ...fn(x, y, z) = 0の左辺
 #AABB_size ...AABBの各辺をAABB_size倍する
-def plot_implicit(ax, fn, points=None, AABB_size=2, bbox=(-2.5,2.5), contourNum=30):
+def plot_implicit3d(ax, fn, points=None, AABB_size=2, bbox=(-2.5,2.5), contourNum=30):
 
     if points is not None:
         #AABB生成
-        max_p, min_p = buildAABB(points)
+        max_p, min_p = buildAABB3d(points)
 
         xmax, ymax, zmax = max_p[0], max_p[1], max_p[2]
         xmin, ymin, zmin = min_p[0], min_p[1], min_p[2]
@@ -339,14 +282,3 @@ def plot_implicit(ax, fn, points=None, AABB_size=2, bbox=(-2.5,2.5), contourNum=
     ax.set_zlim3d(zmin,zmax)
     ax.set_xlim3d(xmin,xmax)
     ax.set_ylim3d(ymin,ymax)
-
-def plot_normal(ax, figure, X, Y, Z):
-    #図形の方程式から点群を作る
-    #points, X, Y, Z = MakePoints(figure.f_rep, epsilon=0.01)
-
-    #法線
-    normals = figure.normal(X, Y, Z)
-    U, V, W = Disassemble(normals)
-
-    #法線を描画
-    ax.quiver(X, Y, Z, U, V, W,  length=0.1,color='red', normalize=True)

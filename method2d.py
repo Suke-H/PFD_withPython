@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import cv2
 import itertools
 
-import figure2d as F
+import figure2d as F2
 
 # aからbまでのランダムな実数値を返す
 def Random(a, b):
@@ -59,18 +59,8 @@ def norm(normal):
         norm = np.array([np.full(2, norm[i]) for i in range(len(norm))])
         return normal / norm
 
-# deg: 循環させる値。単位はなんでもいい
-# unit : 循環の単位
-def cycle(deg, unit):
-    if deg >= 0:
-        return deg % unit
-
-    else:
-        return deg + (-deg//unit + 1) * unit
-
-
 # 図形の境界線の点群を生成
-def ContourPoints(fn, AABB=None, bbox=(-2.5,2.5), AABB_size=1, grid_step=1000, down_rate = 1.0, epsilon=0.01):
+def ContourPoints2d(fn, AABB=None, bbox=(-2.5,2.5), AABB_size=1, grid_step=1000, down_rate = 1.0, epsilon=0.01):
     #import time
     #start = time.time()
     if AABB is None:
@@ -159,7 +149,7 @@ def MakePoints2d(fn, AABB=None, AABB_size=1.5, bbox=(-2.5,2.5), grid_step=50, do
 
     return points
 
-def InteriorPoints(fn, AABB, sampling_size, grid_step=50):
+def InteriorPoints2d(fn, AABB, sampling_size, grid_step=50):
     # import time
     # start = time.time()
     xmin, xmax, ymin, ymax = AABB
@@ -204,53 +194,18 @@ def InteriorPoints(fn, AABB, sampling_size, grid_step=50):
 
     return points
 
-# 凸包の関数により輪郭点抽出
-def MakeContour(points):
-    # 凸包
-    # 入力は[[[1,2]], [[3,4]], ...]のような形で、floatなら32にする
-    # (入力[[1,2],[3,4], ...]でもできた)
-    points = np.array(points, dtype=np.float32)
-    hull = cv2.convexHull(points)
-
-    # 出力は[[[1,2]], [[3,4]], ...]のような形になるので
-    # [[1,2],[3,4], ...]の形にreshape
-    hull = np.reshape(hull, (hull.shape[0], 2))
-
-    # 面積計算
-    area = cv2.contourArea(hull)
-
-    #print("hull:{}, area:{}".format(hull.shape[0], area))
-
-    return hull, area
-
-def PlotContour(hull, color="red"):
-    # 点プロット
-    X, Y = Disassemble2d(hull)
-    plt.plot(X, Y, marker=".",linestyle="None",color=color)
-
-    # hullを[0,1,2,..n] -> [1,2,...,n,0]の順番にしたhull2作成
-    hull2 = list(hull[:])
-    a = hull2.pop(0)
-    hull2.append(a)
-    hull2 = np.array(hull2)
-
-    # hull2を利用して線を引く
-    for a, b in zip(hull, hull2):
-        LX, LY = line2d(a, b)
-        plt.plot(LX, LY, color=color)
-
 def buildAABB2d(points):
     # (x,y)の最大と最小をとる
     max_p = np.amax(points, axis=0)
     min_p = np.amin(points, axis=0)
 
     # 図形作成処理
-    lx1 = F.line([1, 0, max_p[0]])
-    lx2 = F.line([-1, 0, -min_p[0]])
-    ly1 = F.line([0, 1, max_p[1]])
-    ly2 = F.line([0, -1, -min_p[1]])
+    lx1 = F2.line([1, 0, max_p[0]])
+    lx2 = F2.line([-1, 0, -min_p[0]])
+    ly1 = F2.line([0, 1, max_p[1]])
+    ly2 = F2.line([0, -1, -min_p[1]])
 
-    AABB = F.inter(lx1, F.inter(lx2, F.inter(ly1, ly2)))
+    AABB = F2.inter(lx1, F2.inter(lx2, F2.inter(ly1, ly2)))
 
     # 面積算出
     area = abs((max_p[0]-min_p[0]) * (max_p[1]-min_p[1]))
@@ -293,11 +248,11 @@ def buildOBB2d(points):
     s, t = u
     # 法線: s, -s, t, -s
     # c: 法線と1点(smaxなど)との内積
-    lx1 = F.line([s[0], s[1], np.dot(max_xy_point[0], s)])
-    lx2 = F.line([-s[0], -s[1], -np.dot(min_xy_point[0], s)])
-    ly1 = F.line([t[0], t[1], np.dot(max_xy_point[1], t)])
-    ly2 = F.line([-t[0], -t[1], -np.dot(min_xy_point[1], t)])
-    OBB = F.inter(lx1, F.inter(lx2, F.inter(ly1, ly2)))
+    lx1 = F2.line([s[0], s[1], np.dot(max_xy_point[0], s)])
+    lx2 = F2.line([-s[0], -s[1], -np.dot(min_xy_point[0], s)])
+    ly1 = F2.line([t[0], t[1], np.dot(max_xy_point[1], t)])
+    ly2 = F2.line([-t[0], -t[1], -np.dot(min_xy_point[1], t)])
+    OBB = F2.inter(lx1, F2.inter(lx2, F2.inter(ly1, ly2)))
 
     # 対角線の長さ算出
     vert_max = min_xy_point[0] + min_xy_point[1]
@@ -350,6 +305,21 @@ def AABBViewer2d(max_p, min_p):
                 x, y = line2d(vertices[i], vertices[j])
                 plt.plot(x,y,marker=".",color="red")
 
+def PlotContour2d(hull, color="red"):
+    # 点プロット
+    X, Y = Disassemble2d(hull)
+    plt.plot(X, Y, marker=".",linestyle="None",color=color)
+
+    # hullを[0,1,2,..n] -> [1,2,...,n,0]の順番にしたhull2作成
+    hull2 = list(hull[:])
+    a = hull2.pop(0)
+    hull2.append(a)
+    hull2 = np.array(hull2)
+
+    # hull2を利用して線を引く
+    for a, b in zip(hull, hull2):
+        LX, LY = line2d(a, b)
+        plt.plot(LX, LY, color=color)
 
 #陰関数のグラフ描画
 #fn  ...fn(x, y) = 0の左辺

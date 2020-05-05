@@ -1,9 +1,6 @@
 import numpy as np
-from scipy.optimize import minimize
-
 import open3d
-from loadOBJ import loadOBJ
-from method import *
+from method3d import *
 
 def NormalEstimate(points):
 	#objファイルから点群取得
@@ -34,7 +31,7 @@ def NormalEstimate(points):
 
 	#OBB生成
 	#(最適化の条件にも使いたい)
-    # _, _, length = buildOBB(points)
+    # _, _, length = buildOBB3d(points)
     # print("OBB_length: {}".format(length))
     
     return normals

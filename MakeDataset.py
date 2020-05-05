@@ -2,10 +2,10 @@ import numpy as np
 import numpy.linalg as LA
 import matplotlib.pyplot as plt
 
-from method import *
+from method3d import *
 from method2d import *
-import figure2d as F
-import figure2 as F2
+import figure2d as F2
+import figure3d as F3
 from Projection import Plane3DProjection
 
 import open3d
@@ -15,7 +15,7 @@ def RandomCircle(x_min=-100, x_max=100, y_min=-100, y_max=100, r_min=0, r_max=20
     y = Random(y_min, y_max)
     r = Random(r_min, r_max)
 
-    return F.circle([x, y, r])
+    return F2.circle([x, y, r])
 
 def RandomTriangle(x_min=-100, x_max=100, y_min=-100, y_max=100, r_min=0, r_max=20):
     x = Random(x_min, x_max)
@@ -23,7 +23,7 @@ def RandomTriangle(x_min=-100, x_max=100, y_min=-100, y_max=100, r_min=0, r_max=
     r = Random(r_min, r_max)
     t = Random(0, np.pi*2/3)
 
-    return F.tri([x, y, r, t])
+    return F2.tri([x, y, r, t])
 
 def RandomRectangle(x_min=-100, x_max=100, y_min=-100, y_max=100, w_min=0, w_max=20, h_min=0, h_max=20):
     x = Random(x_min, x_max)
@@ -32,27 +32,27 @@ def RandomRectangle(x_min=-100, x_max=100, y_min=-100, y_max=100, w_min=0, w_max
     h = Random(h_min, h_max)
     t = Random(0, np.pi/2)
 
-    return F.rect([x, y, w, h, t])
+    return F2.rect([x, y, w, h, t])
 
 def RandomCircle2(r, x_min=-100, x_max=100, y_min=-100, y_max=100):
     x = Random(x_min, x_max)
     y = Random(y_min, y_max)
 
-    return F.circle([x, y, r])
+    return F2.circle([x, y, r])
 
 def RandomTriangle2(r, x_min=-100, x_max=100, y_min=-100, y_max=100):
     x = Random(x_min, x_max)
     y = Random(y_min, y_max)
     t = Random(0, np.pi*2/3)
 
-    return F.tri([x, y, r, t])
+    return F2.tri([x, y, r, t])
 
 def RandomRectangle2(w, h, x_min=-100, x_max=100, y_min=-100, y_max=100):
     x = Random(x_min, x_max)
     y = Random(y_min, y_max)
     t = Random(0, np.pi/2)
 
-    return F.rect([x, y, w, h, t])
+    return F2.rect([x, y, w, h, t])
 
 def RandomPlane(high=1000):
     # 法線作成
@@ -66,7 +66,7 @@ def RandomPlane(high=1000):
     # d作成
     d = Random(-high, high)
 
-    return F2.plane([a, b, c, d])
+    return F3.plane([a, b, c, d])
 
 def CheckPolygonInternal(vertices, AABB):
     xmin, xmax, ymin, ymax = AABB
@@ -78,18 +78,6 @@ def CheckPolygonInternal(vertices, AABB):
         return True
 
     return False
-
-
-def ConstructAABBObject2d(max_p, min_p):
-    # 図形作成処理
-    lx1 = F.line([1, 0, max_p[0]])
-    lx2 = F.line([-1, 0, -min_p[0]])
-    ly1 = F.line([0, 1, max_p[1]])
-    ly2 = F.line([0, -1, -min_p[1]])
-
-    AABB = F.inter(lx1, F.inter(lx2, F.inter(ly1, ly2)))
-
-    return AABB
 
 # 図形の点群＋ランダムに生成したAABB内にノイズ作成
 # <条件>
@@ -151,7 +139,7 @@ def MakePointSet(fig_type, N, rate=Random(0.5, 1),  low=-100, high=100, grid_ste
             if CheckPolygonInternal(vertices, AABB):
                 break
 
-    fig_points = InteriorPoints(fig.f_rep, AABB, size, grid_step=grid_step)
+    fig_points = InteriorPoints2d(fig.f_rep, AABB, size, grid_step=grid_step)
 
     # N-size点のノイズ生成
     xmin, xmax, ymin, ymax = AABB
@@ -174,24 +162,12 @@ def MakePointSet(fig_type, N, rate=Random(0.5, 1),  low=-100, high=100, grid_ste
 
     return fig, points, AABB, trueIndex
 
-def ConstructAABBObject(max_p, min_p):
-    px1 = F2.plane([1, 0, 0, max_p[0]])
-    px2 = F2.plane([-1, 0, 0, -min_p[0]])
-    py1 = F2.plane([0, 1, 0, max_p[1]])
-    py2 = F2.plane([0, -1, 0, -min_p[1]])
-    pz1 = F2.plane([0, 0, 1, max_p[1]])
-    pz2 = F2.plane([0, 0, -1, -min_p[1]])
-
-    AABB = F2.AND(F2.AND(F2.AND(F2.AND(F2.AND(px1, px2), py1), py2), pz1), pz2)
-
-    return AABB
-
-
 # 図形の点群＋ランダムに生成したAABB内にノイズ作成
 # <条件>
 # 1. 図形の点群+ノイズの合計値はN, rateによって図形点群の割合が変わる
 # 2. AABBは射影した図形点群のAABBの1~1.5割増に作成
 def MakePointSet3D(fig_type, N, rate=Random(0.5, 1), low=-100, high=100, grid_step=50):
+
 
     print("rate:{}".format(rate))
     size = int(N*rate//1)
@@ -219,7 +195,7 @@ def MakePointSet3D(fig_type, N, rate=Random(0.5, 1), low=-100, high=100, grid_st
     # 平面3d射影
     center, points3d = Plane3DProjection(points2d, fig2d.p, u, v, O)
 
-    max_p, min_p, l = buildAABB(points3d)
+    max_p, min_p, l = buildAABB3d(points3d)
 
     ## ノイズ用AABBを、図形点群のAABBの1~1.5倍増しに作成 ##
     xmax, ymax, zmax = max_p
@@ -263,64 +239,42 @@ def MakePointSet3D(fig_type, N, rate=Random(0.5, 1), low=-100, high=100, grid_st
     points = points[perm]
     trueIndex = trueIndex[perm]
 
-    # #点群をnp配列⇒open3d形式に
-    # pointcloud = open3d.PointCloud()
-    # pointcloud.points = open3d.Vector3dVector(points)
-
-    # # color
-    # colors3 = np.asarray(pointcloud.colors)
-    # colors3 = np.array([[255, 130, 0] if trueIndex[i] else [0, 0, 255] for i in range(points.shape[0])]) / 255
-    # pointcloud.colors = open3d.Vector3dVector(colors3)
-
-    # # 法線推定
-    # open3d.estimate_normals(
-    # pointcloud,
-    # search_param = open3d.KDTreeSearchParamHybrid(
-    # radius = l*0.05, max_nn = 100))
-
-    # # 法線の方向を視点ベースでそろえる
-    # open3d.orient_normals_towards_camera_location(
-    # pointcloud,
-    # camera_location = np.array([0., 10., 10.], 
-    # dtype="float64"))
-
-    # #nキーで法線表示
-    # open3d.draw_geometries([pointcloud])
-
     return center, fig2d.p, plane.p, points, AABB, trueIndex
 
-# いろんな種類の標識作成
-# 1～3は倍率が2/3, 1, 1.5, 2の4種類ある
-# 0: 半径0.3mの円
-# 1: 1辺0.8mの正三角形
-# 2: 1辺0.9mの正方形
-# 3. 1辺0.45mのひし形(てか正方形)
-# 4. 1辺が0.05～1のどれかの長方形
 def MakeSign2D(sign_type, scale):
+    """
+    いろんな種類の標識作成
+    1～3は倍率が2/3, 1, 1.5, 2の4種類ある
+    0: 半径0.3mの円
+    1: 1辺0.8mの正三角形
+    2: 1辺0.9mの正方形
+    3. 1辺0.45mのひし形(てか正方形)
+    4. 1辺が0.05～1のどれかの長方形
+    """
 
     # 標識作成
     if sign_type == 0:
         r = 0.3*scale
-        fig = F.circle([0,0,r])
+        fig = F2.circle([0,0,r])
         fig_type = 0
         AABB = np.array([-0.35, 0.35, -0.35, 0.35])*scale
 
     elif sign_type == 1:
         r = 0.8/np.sqrt(3)*scale
-        fig = F.tri([0,0,r,Random(0,np.pi*2/3)])
+        fig = F2.tri([0,0,r,Random(0,np.pi*2/3)])
         fig_type = 1
         AABB = np.array([-0.45, 0.45, -0.45, 0.45])*scale
         
     elif sign_type == 2:
         r = 0.9*scale
-        fig = F.rect([0,0,r,r,Random(0,np.pi/2)])
+        fig = F2.rect([0,0,r,r,Random(0,np.pi/2)])
         fig_type = 2
         l = 0.9*np.sqrt(2)/2
         AABB = np.array([-l*1.1, l*1.1, -l*1.1, l*1.1])*scale
 
     elif sign_type == 3:
         r = 0.45*scale
-        fig = F.rect([0,0,r,r,Random(0,np.pi/2)])
+        fig = F2.rect([0,0,r,r,Random(0,np.pi/2)])
         fig_type = 2
         l = 0.45*np.sqrt(2)/2
         AABB = np.array([-l*1.1, l*1.1, -l*1.1, l*1.1])*scale
@@ -328,7 +282,7 @@ def MakeSign2D(sign_type, scale):
     else:
         w = Random(0.5,2)
         h = Random(0.5,2)
-        fig = F.rect([0,0,w,h,Random(0,np.pi/2)])
+        fig = F2.rect([0,0,w,h,Random(0,np.pi/2)])
         fig_type = 2
         l = np.sqrt(w**2+h**2)*np.sqrt(2)/2
         AABB = np.array([-l*1.1, l*1.1, -l*1.1, l*1.1])*scale
@@ -348,7 +302,7 @@ def MakeSign3D(sign_type, scale, density, noise_rate, error_rate, error_step, lo
     ## 平面図形設定 + 点群作成 ##
     fig2d, fig_type, AABB2d = MakeSign2D(sign_type, scale)
     fig_size = int(density*fig2d.CalcArea()//1)
-    points2d = InteriorPoints(fig2d.f_rep, AABB2d, fig_size, grid_step=grid_step)
+    points2d = InteriorPoints2d(fig2d.f_rep, AABB2d, fig_size, grid_step=grid_step)
 
     # ノイズ点群の数と全点群数を出しておく
     noise_size = int(noise_rate/(1-noise_rate)*fig_size//1)
@@ -376,7 +330,7 @@ def MakeSign3D(sign_type, scale, density, noise_rate, error_rate, error_step, lo
 
     # print("points3d:{}".format(points3d.shape))
 
-    max_p, min_p, l = buildAABB(points3d)
+    max_p, min_p, l = buildAABB3d(points3d)
 
     ## ノイズ用AABBを、図形点群のAABBの1~1.5倍増しに作成 ##
     xmax, ymax, zmax = max_p
@@ -427,53 +381,4 @@ def MakeSign3D(sign_type, scale, density, noise_rate, error_rate, error_step, lo
     # 図形点群はTrue, ノイズはFalseでラベル付け
     trueIndex = np.array([True if i < fig_size else False for i in range(points.shape[0])])
 
-    # # シャッフルしておく
-    # perm = np.random.permutation(points.shape[0])
-    # points = points[perm]
-    # trueIndex = trueIndex[perm]
-
-    # #点群をnp配列⇒open3d形式に
-    # pointcloud = open3d.PointCloud()
-    # pointcloud.points = open3d.Vector3dVector(points)
-
-    # # color
-    # colors3 = np.asarray(pointcloud.colors)
-    # colors3 = np.array([[255, 130, 0] if trueIndex[i] else [0, 0, 255] for i in range(points.shape[0])]) / 255
-    # pointcloud.colors = open3d.Vector3dVector(colors3)
-
-    # # 法線推定
-    # open3d.estimate_normals(
-    # pointcloud,
-    # search_param = open3d.KDTreeSearchParamHybrid(
-    # radius = l*0.05, max_nn = 100))
-
-    # # 法線の方向を視点ベースでそろえる
-    # open3d.orient_normals_towards_camera_location(
-    # pointcloud,
-    # camera_location = np.array([0., 10., 10.], 
-    # dtype="float64"))
-
-    # #nキーで法線表示
-    # open3d.draw_geometries([pointcloud])
-
-    # プロット準備
-    # fig = plt.figure()
-    # ax = Axes3D(fig)
-    # ax.set_xlabel("X")
-    # ax.set_ylabel("Y")
-    # ax.set_zlabel("Z")
-    # X, Y, Z = Disassemble(points[trueIndex])
-    # OX, OY, OZ = Disassemble(points[trueIndex==False])
-    # ax.plot(X, Y, Z, marker=".", linestyle='None', color="orange")
-    # ax.plot(OX, OY, OZ, marker=".", linestyle='None', color="blue")
-
-    # plt.show()
-
     return center, fig2d.p, plane.p, points, AABB3d, AABB2d, trueIndex, u, v, O
-# while True:
-#     fig, fig_type, AABB2d = MakeSign2D(4, 1)
-#     points2d = InteriorPoints(fig.f_rep, AABB2d, 1000)
-#     X, Y = Disassemble2d(points2d)
-#     plt.plot(X, Y, marker=".", linestyle='None', color="red")
-#     plt.show()
-# MakeSign3D(sign_type=0, scale=1, density=2000, noise_rate=0.1, error_rate=0, error_step=0)

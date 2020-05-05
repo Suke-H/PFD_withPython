@@ -2,13 +2,13 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 
-from method import *
-import figure2 as F
+from method3d import *
+import figure3d as F3
 
 # 点群の中から図形にフィットする点のインデックスを返す
-def CountPoints(figure, points, normals, epsilon, alpha):
+def CountFitPoints(figure, points, normals, epsilon, alpha):
 
-    X, Y, Z = Disassemble(points)
+    X, Y, Z = Disassemble3d(points)
 
     #|f(x,y,z)|<εを満たす点群だけにする
     D = figure.f_rep(X, Y, Z)
@@ -24,17 +24,13 @@ def CountPoints(figure, points, normals, epsilon, alpha):
 
     return index, len(index)
 
-def PlaneDict(points, normals, epsilon, alpha):
-
-    X, Y, Z = Disassemble(points)
+def PlaneDetect(points, normals, epsilon, alpha):
+    X, Y, Z = Disassemble3d(points)
 
     n = points.shape[0]
     N = 5000
     # ランダムに3点ずつN組抽出
     points_set = points[np.array([np.random.choice(n, 3, replace=False) for i in range(N)]), :]
-    #points_set = points[np.random.choice(n, size=(int((n-n%3)/3), 3), replace=False), :]
-    
-    #print("points:{}".format(points_set.shape))
 
     # 分割
     # [a1, b1, c1] -> [a1] [b1, c1]
@@ -60,25 +56,23 @@ def PlaneDict(points, normals, epsilon, alpha):
     p = np.concatenate([n, d], axis=1)
 
     # 平面生成
-    Planes = [F.plane(p[i]) for i in range(p.shape[0])]
+    Planes = [F3.plane(p[i]) for i in range(p.shape[0])]
 
     # フィットしている点の数を数える
-    Scores = [CountPoints(Planes[i], points, normals, epsilon, alpha)[1] for i in range(p.shape[0])]
-
-    print(p[Scores.index(max(Scores))])
+    Scores = [CountFitPoints(Planes[i], points, normals, epsilon, alpha)[1] for i in range(p.shape[0])]
 
     return Planes[Scores.index(max(Scores))]
 
 # 入力：点群、法線
 # 出力：最適平面のパラメータ、フィット点のインデックス
-def RANSAC(points, normals, epsilon=0.05, alpha=np.pi/8):
+def Ransac(points, normals, epsilon=0.05, alpha=np.pi/8):
 
-    X, Y, Z = Disassemble(points)
+    X, Y, Z = Disassemble3d(points)
 
     # 平面検出
-    figure = PlaneDict(points, normals, epsilon, alpha)
+    figure = PlaneDetect(points, normals, epsilon, alpha)
     
     # フィット点を抽出
-    index, num = CountPoints(figure, points, normals, epsilon, alpha)
+    index, num = CountFitPoints(figure, points, normals, epsilon, alpha)
 
     return figure, index, num
