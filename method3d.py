@@ -40,12 +40,23 @@ def Disassemble3d(XYZ):
     [xn, yn, zn]         [z1, z2, ..., zn]
 
     """
-    XYZ = XYZ.T[:]
-    X = XYZ[0, :]
-    Y = XYZ[1, :]
-    Z = XYZ[2, :]
+    X, Y, Z = XYZ.T[:]
 
     return X, Y, Z
+
+def Composition3d(pointX, pointY, pointZ):
+    """
+    x, yを点群データに構成する
+
+    [x1, x2, ..., xn]        [x1, y1, z1]         
+    [y1, y2, ..., yn]    ->     : 
+    [z1, z2, ..., zn]        [xn, yn, zn]    
+
+    """
+    points = np.stack([pointX, pointY, pointZ])
+    points = points.T
+
+    return points
 
 def line3d(a, b):
     """ 線分abの2D点群生成 """
@@ -157,9 +168,8 @@ def MakePoints3D(fn, bbox=(-2.5,2.5), grid_step=50, down_rate = 0.5, epsilon=0.0
     pointY = np.array([Y[i] for i in index])
     pointZ = np.array([Z[i] for i in index])
 
-    # points作成([[x1,y1,z1],[x2,y2,z2],...])    
-    points = np.stack([pointX, pointY, pointZ])
-    points = points.T
+    # points作成([[x1,y1,z1],[x2,y2,z2],...])  
+    points = Composition3d(pointX, pointY, pointZ)  
 
     return points
 

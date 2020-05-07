@@ -8,7 +8,7 @@ import os
 from method2d import *
 from method3d import *
 from PreProcess import NormalEstimate
-from Ransac import PlaneDetect
+from PlaneDetect import PlaneDetect
 from Projection import Plane2DProjection, Plane3DProjection
 from GA import EntireGA
 from MakeDataset import MakeSign3D
@@ -290,15 +290,15 @@ def main():
     """
 
     # 出力先のフォルダパス
-    out_path = "data/sim2/"
+    out_path = "data/"
 
-    sign_type, scale, density, noise_rate = 0, 1, 2500, 0.2
+    sign_type, scale, density, noise_rate = 1, 1, 2500, 0.2
 
     # 平面図形検出
     simulation(sign_type, scale, density, noise_rate, out_path)
 
     # # 再表示(第二引数：何番目の検出結果を表示するか(0始まり))
-    # review(out_path, 2)
+    # review(out_path, 0)
 
 if __name__ == "__main__":
     main()

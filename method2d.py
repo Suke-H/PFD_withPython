@@ -118,9 +118,8 @@ def ContourPoints2d(fn, AABB=None, AABB_size=1, grid_step=1000, down_rate = 0, e
     pointX = np.array([X[i] for i in index])
     pointY = np.array([Y[i] for i in index])
 
-    #points作成([[x1,y1],[x2,y2],...])    
-    points = np.stack([pointX, pointY])
-    points = points.T
+    #points作成([[x1,y1],[x2,y2],...])   
+    points = Composition2d(pointX, pointY)
 
     return points
 
@@ -168,8 +167,7 @@ def InteriorPoints2d(fn, AABB, sampling_size, grid_step=50):
     pointY = np.array([Y[i] for i in index])
 
     # points作成([[x1,y1,z1],[x2,y2,z2],...])
-    points = np.stack([pointX, pointY])
-    points = points.T
+    points = Composition2d(pointX, pointY)
 
     return points
 

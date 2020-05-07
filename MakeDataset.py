@@ -113,7 +113,7 @@ def MakeSign3D(sign_type, scale, density, noise_rate, low=-100, high=100, grid_s
     sign_type, scale: MakeSign2D参照
     density: 点密度(個/m^2)
     noise_rate: 全点群数に対するノイズ点群の割合
-
+    
     """
 
     ## 平面図形設定 + 点群作成 ##

@@ -350,7 +350,7 @@ def DrawFig(points, person, out_points, out_area, path, AABB_size=1.5):
     
     AABB = [min_p[0], max_p[0], min_p[1], max_p[1]]
 
-    points2 = ContourPoints2d(person.figure.f_rep, AABB=AABB, AABB_size=AABB_size, grid_step=1000, epsilon=0.01, down_rate=1)
+    points2 = ContourPoints2d(person.figure.f_rep, AABB=AABB, AABB_size=AABB_size, grid_step=1000, epsilon=0.01, down_rate=0)
     X2, Y2= Disassemble2d(points2)
     plt.plot(X2, Y2, marker=".",linestyle="None",color="red")
 
