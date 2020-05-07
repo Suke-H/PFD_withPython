@@ -47,7 +47,7 @@ python Work.py
 ただし`Work.py`の`main`関数を調整する必要がある。
 以下に`main`関数のみ抜粋する。
 
-```python
+```python:Work.py
 def main():
     """
     シミュレーション点群を生成し、それを入力に平面図形を検出
