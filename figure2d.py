@@ -1,50 +1,50 @@
 import numpy as np
 
-def Composition2d(X, Y):
-    points = np.stack([X, Y])
-    points = np.transpose(points, (1,0))
-
-    return points
-
 class circle:
+    """ 円のF-Rep表現のクラス """
+
     def __init__(self, p):
-        # パラメータ
-        # p = [x0, y0, r]
+        """ パラメータ: p = [x0, y0, r] """
         self.p = p
 
-    # 円の方程式: f(x,y) = r - √(x-x0)^2 + (y-y0)^2
     def f_rep(self, x, y):
+        """ 円の方程式: f(x,y) = r - √(x-x0)^2 + (y-y0)^2 """
         x0, y0, r = self.p
 
         return r - np.sqrt((x-x0)**2 + (y-y0)**2)
-        
-    # S = pi*r^2
+
     def CalcArea(self):
+        """ 面積: S = pi*r^2 """
         return np.pi * self.p[2]**2
 
 class line:
+    """ 直線のF-Rep表現のクラス """
+
     def __init__(self, p):
-        # パラメータ
-        # p = [a, b, c]
+        """ パラメータ: p = [a, b, c] """
         self.p = p
 
-    # 直線の方程式: f(x,y) = c - (ax + by)
     def f_rep(self, x, y):
+        """ 直線の方程式: f(x,y) = c - (ax + by) """
         a, b, c = self.p
 
         return c - (a*x + b*y)
 
 class tri:
+    """ 正三角形のF-Rep表現のクラス """
+
     def __init__(self, p):
-        # パラメータ
-        # p = [x0, y0, r, t]
-        # x0, y0: 中心
-        # r: 半径(=中心から辺への垂直距離)
-        # t: 中心から反時計回りへの回転の角度(/rad)
+        """
+        パラメータ
+        p = [x0, y0, r, t]
+        x0, y0: 中心
+        r: 半径(=中心から辺への垂直距離)
+        t: 中心から反時計回りへの回転の角度(/rad)
+        """
         self.p = p
 
-    # 正三角形: spin(inter(l1,l2,l3), x0, y0, t)
     def f_rep(self, x, y):
+        """　正三角形: spin(inter(l1,l2,l3), x0, y0, t)　"""
         x0, y0, r, t = self.p
         s = np.sqrt(3)/2
         # 3辺作成
@@ -58,11 +58,12 @@ class tri:
 
         return tri.f_rep(x, y)
 
-    #S = √3/3 * r^2
     def CalcArea(self):
+        """ 面積: S = √3/3 * r^2 """
         return 3*np.sqrt(3)/4 * self.p[2]**2
 
     def CalcVertices(self):
+        """ 頂点3つの座標を算出 """
         x0, y0, r, t = self.p
         s = np.sqrt(3)/2
 
@@ -81,18 +82,21 @@ class tri:
 
         return np.stack([v1, v2, v3])
 
-
 class rect:
+    """ 長方形のF-Rep表現のクラス """
+
     def __init__(self, p):
-        # パラメータ
-        # p = [x0, y0, w, h, t]
-        # x0, y0: 中心
-        # w, h: 幅、高さ
-        # t: 中心から反時計回りへの回転の角度(/rad)
+        """
+        パラメータ
+        p = [x0, y0, w, h, t]
+        x0, y0: 中心
+        w, h: 幅、高さ
+        t: 中心から反時計回りへの回転の角度(/rad)
+        """
         self.p = p
 
-    # 長方形: spin(inter(l1,l2,l3,l4), x0, y0, t)
     def f_rep(self, x, y):
+        """ 長方形: spin(inter(l1,l2,l3,l4), x0, y0, t) """
         x0, y0, w, h, t = self.p
         # 4辺作成
         l1 = line([0,1,y0+h/2])
@@ -107,9 +111,12 @@ class rect:
         return rect.f_rep(x, y)
 
     def CalcArea(self):
+        """ 面積: S = w*h """
         return self.p[2] * self.p[3]
 
     def CalcVertices(self):
+        """ 頂点4つの座標を算出 """
+
         x0, y0, w, h, t = self.p
 
         # θ=0としたときの4頂点の座標
@@ -130,6 +137,8 @@ class rect:
         return np.stack([v1, v2, v3, v4])
 
 class spin:
+    """ 回転のクラス """
+    
     def __init__(self, fig, x0, y0, t):
         #fig: 回転させる図形
         self.fig = fig
@@ -142,9 +151,13 @@ class spin:
         # P_inv: Pの逆行列
         self.P_inv = np.linalg.inv(self.P)
 
-    # X = P(x-x0) + x0     で回転させることができるため、
-    # x = P_inv(X-x0) + x0 をf(x)に代入する
+    
     def f_rep(self, x, y):
+        """
+        X = P(x-x0) + x0     で回転させることができるため、
+        x = P_inv(X-x0) + x0 をf(x)に代入する
+        """
+
         # xとyをまとめて[[x1,x2,...],[y1,y2,...]]の形にする
         p0 = np.concatenate([[x],[y]])
         
@@ -155,57 +168,33 @@ class spin:
         x, y = np.dot(self.P_inv, p0-x0) + x0
 
         # f(x)に代入
-        return self.fig.f_rep(x, y)
+        return self.fig.f_rep(x, y)   
 
-# class trans:
-#     def __init__(self, fig, u, v, O):
-#         #fig: 回転させる図形
-#         self.fig = fig
-#         # N: 射影させるための行列
-#         self.N = np.array([u, v])
-#         # N_inv: Nの逆行列
-#         self.N_inv = np.linalg.inv(self.N)
-#         # O: 2次元座標の原点
-#         self.O = O
-
-#     # x = (X - O) N^-1 を代入
-#     def f_rep(self, x, y):
-#         # xとyをまとめて[[x1,x2,...],[y1,y2,...]]の形にする
-#         p = Composition2d(x, y)
-        
-#         # Oを[[x0,x0,...],[y0,y0,...]]にする
-#         O = np.array([[self.x0[0] for i in range(len(x))], [self.x0[1] for i in range(len(x))]])
-
-#         # x = P_inv(X-x0) + x0
-#         x, y = np.dot(self.P_inv, p0-x0) + x0
-
-#         # f(x)に代入
-#         return self.fig.f_rep(x, y)        
-
-# intersection(=論理積, and)
 class inter:
+    """ intersection(=論理積, and)のクラス """
+
     def __init__(self, fig1, fig2):
         self.fig1 = fig1
         self.fig2 = fig2
 
-    # inter(f1,f2) = f1 + f2 - √f1^2 + f2^2
     def f_rep(self, x, y):
+        """ inter(f1,f2) = f1 + f2 - √f1^2 + f2^2 """
         f1 = self.fig1.f_rep(x,y)
         f2 = self.fig2.f_rep(x,y)
 
         return f1 + f2 - np.sqrt(f1**2 + f2**2)
 
-# union(=論理和, or)
 class union:
+    """ union(=論理和, or)のクラス """
+
     def __init__(self, fig1, fig2):
         self.fig1 = fig1
         self.fig2 = fig2
 
-    # union(f1,f2) = f1 + f2 + √f1^2 + f2^2
     def f_rep(self, x, y):
+        """ union(f1,f2) = f1 + f2 + √f1^2 + f2^2 """
         f1 = self.fig1.f_rep(x,y)
         f2 = self.fig2.f_rep(x,y)
         
         return f1 + f2 + np.sqrt(f1**2 + f2**2)
-
     

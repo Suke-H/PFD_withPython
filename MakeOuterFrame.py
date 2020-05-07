@@ -2,11 +2,12 @@ import numpy as np
 import cv2 as cv
 
 from method2d import *
-from MakeDataset import MakePointSet
 
 def TransPix(points, dir_path, num, x_pix=1000):
+    """ 2D点群を画像に変換 """
+
     # AABBの横長dx, 縦長dyを出す
-    max_p, min_p, _, _, _ = buildAABB2d(points)
+    max_p, min_p, _, _ = buildAABB2d(points)
     # print(max_p, min_p)
     dx = abs(max_p[0] - min_p[0])
     dy = abs(max_p[1] - min_p[1])
@@ -50,6 +51,7 @@ def TransPix(points, dir_path, num, x_pix=1000):
     return dx, dy, px, py, cx, cy, originPath
 
 def Morphology(dir_path, originPath, i, dilate_size=25, erode_size=10, close_size=30, open_size=30, add_size=35):
+    """ モルフォロジー処理により図形点群の外枠を生成 """
 
      # ファイルを読み込み
     pix = cv.imread(originPath, cv.IMREAD_COLOR)
@@ -105,9 +107,11 @@ def Morphology(dir_path, originPath, i, dilate_size=25, erode_size=10, close_siz
 
     return hull
 
-# 画像->点群
-# 画像座標の輪郭点を点群座標に変換
 def TransPoints(contour, dx, dy, px, py, cx, cy):
+    """
+    画像->2D点群
+    画像座標の輪郭点を点群座標に変換
+    """
     points = np.zeros(contour.shape)
 
     for i, p in enumerate(contour):
@@ -115,8 +119,37 @@ def TransPoints(contour, dx, dy, px, py, cx, cy):
 
     return points
 
-# 点群から外枠の輪郭点を出す
+def CheckCrossNum(p, contour):
+    """ 点pが輪郭点contour内にあるかの判定 """
+
+    # 輪郭点の辺をつくるため、
+    # 輪郭点を[0,1,2,..n] -> [1,2,...,n,0]の順にした配列を作成
+    order = [i for i in range(1, contour.shape[0])]
+    order.append(0)
+    contour2 = contour[order, :]
+
+    # l: pから右に伸ばした半直線
+    # 各辺とlの交差数をカウントする
+    crossCount = 0
+    for a, b in zip(contour, contour2):
+        # ルール1,2,3
+        if (a[1]<=p[1] and b[1]>p[1]) or (a[1]>p[1] and b[1]<=p[1]):
+
+            # ルール4: cx > pxなら交差する
+            #print("a:{}, b:{}, p:{}".format(a,b,p))
+            cx = (p[1]*(a[0]-b[0]) + a[1]*b[0] - a[0]*b[1]) / (a[1]-b[1])
+            if cx > p[0]:
+                crossCount+=1
+
+    # 交差数が偶数なら外、奇数なら内
+    if crossCount%2 == 0:
+        return False
+    else:
+        return True
+
 def MakeOuterFrame(points, dir_path, i,  dilate_size=25, close_size=30, open_size=30, add_size=35):
+    """ 2D点群から外枠の輪郭点を生成 """
+
     # 点群->画像
     dx, dy, px, py, cx, cy, originPath = TransPix(points, dir_path, i)
 
@@ -136,8 +169,15 @@ def MakeOuterFrame(points, dir_path, i,  dilate_size=25, close_size=30, open_siz
 
     PlotContour2d(contour_points)
 
-    #plt.show()
     plt.savefig(dir_path+'contour/'+str(i)+'.png')
     plt.close()
 
-    return contour_points, area
+    # 輪郭抽出に失敗したら終了
+    if contour_points is None:
+        return None, None, 0
+
+    # 外枠内の点群だけにする
+    inside_index = np.array([CheckCrossNum(points[i], contour_points) for i in range(points.shape[0])])
+    inside_points = points[inside_index]
+
+    return contour_points, inside_points, area

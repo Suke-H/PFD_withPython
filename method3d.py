@@ -3,14 +3,14 @@ import numpy.linalg as LA
 import itertools
 import random
 import time
-
-#seabornはimportしておくだけでもmatplotlibのグラフがきれいになる
 import seaborn as sns
 sns.set_style("darkgrid")
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 def norm(normal):
+    """ ベクトルの正規化 """
+
      #ベクトルが一次元のとき
     if len(normal.shape)==1:
         if np.linalg.norm(normal) == 0:
@@ -38,6 +38,7 @@ def Disassemble3d(XYZ):
     [x1, y1, z1]         [x1, x2, ..., xn]
         :        ->      [y1, y2, ..., yn]
     [xn, yn, zn]         [z1, z2, ..., zn]
+
     """
     XYZ = XYZ.T[:]
     X = XYZ[0, :]
@@ -47,6 +48,8 @@ def Disassemble3d(XYZ):
     return X, Y, Z
 
 def line3d(a, b):
+    """ 線分abの2D点群生成 """
+
     t = np.arange(0, 1, 0.01)
 
     x = a[0]*t + b[0]*(1-t)
@@ -55,8 +58,31 @@ def line3d(a, b):
 
     return x, y, z
 
-###OBB生成####
+def buildAABB3d(points):
+    """
+    3D点群のAABB(Axis Aligned Bounding Box)生成
+
+    max_p: 最大の頂点[xmax, ymax]
+    min_p: 最小の頂点[xmin, ymin]
+    l: AABBの対角線の長さ
+    """
+    #なんとこれで終わり
+    max_p = np.amax(points, axis=0)
+    min_p = np.amin(points, axis=0)
+
+    l = np.sqrt((max_p[0]-min_p[0])**2 + (max_p[1]-min_p[1])**2 + (max_p[2]-min_p[2])**2)
+
+    return max_p, min_p, l
+
 def buildOBB3d(points):
+    """
+    3D点群のOBB(Oriented Bounding Box)生成
+
+    max_p: 最大の頂点[xmax, ymax]
+    min_p: 最小の頂点[xmin, ymin]
+    l: OBBの対角線の長さ
+    """
+
     #分散共分散行列Sを生成
     S = np.cov(points, rowvar=0, bias=1)
 
@@ -94,22 +120,20 @@ def buildOBB3d(points):
 
     return max_xyz_point, min_xyz_point, l
 
-###AABB生成####
-def buildAABB3d(points):
-    #なんとこれで終わり
-    max_p = np.amax(points, axis=0)
-    min_p = np.amin(points, axis=0)
+def MakePoints3D(fn, bbox=(-2.5,2.5), grid_step=50, down_rate = 0.5, epsilon=0.05):
+    """
+    図形の3D点群生成
 
-    l = np.sqrt((max_p[0]-min_p[0])**2 + (max_p[1]-min_p[1])**2 + (max_p[2]-min_p[2])**2)
+    fn: F-Rep
+    bbox: 描画する範囲
+    grid_step: グリッドの数。ここで点群数を調整
+    down_rate: 点群を間引く割合
+    epsilon: 点群と図形との許容距離
 
-    return max_p, min_p, l
-
-def MakePoints(fn, bbox=(-2.5,2.5), grid_step=50, down_rate = 0.5, epsilon=0.05):
-    #import time
-    #start = time.time()
+    """
     xmin, xmax, ymin, ymax, zmin, zmax = bbox*3
 
-    #点群X, Y, Z, pointsを作成
+    # 点群X, Y, Z, pointsを作成
     x = np.linspace(xmin, xmax, grid_step)
     y = np.linspace(ymin, ymax, grid_step)
     z = np.linspace(zmin, zmax, grid_step)
@@ -121,31 +145,26 @@ def MakePoints(fn, bbox=(-2.5,2.5), grid_step=50, down_rate = 0.5, epsilon=0.05)
     # 変更前
     #W = fn(X, Y, Z)
 
-    #Ｗが0に近いインデックスを取り出す
+    # Wが0に近いインデックスを取り出す
     index = np.where(np.abs(W)<=epsilon)
     index = [(index[0][i], index[1][i], index[2][i]) for i in range(len(index[0]))]
-    #print(index)
 
-    #ランダムにダウンサンプリング
-    index = random.sample(index, int(len(index)*down_rate//1))
+    # ランダムにダウンサンプリング
+    index = random.sample(index, int(len(index)*(1-down_rate)//1))
 
-
-    #格子点から境界面(fn(x,y,z)=0)に近い要素のインデックスを取り出す
+    # 格子点から境界面(fn(x,y,z)=0)に近い要素のインデックスを取り出す
     pointX = np.array([X[i] for i in index])
     pointY = np.array([Y[i] for i in index])
     pointZ = np.array([Z[i] for i in index])
 
-    #points作成([[x1,y1,z1],[x2,y2,z2],...])    
+    # points作成([[x1,y1,z1],[x2,y2,z2],...])    
     points = np.stack([pointX, pointY, pointZ])
     points = points.T
 
-    #end = time.time()
-    #print("time:{}s".format(end-start))
-
     return points
 
-#点群を入力としてOBBを描画する
 def OBBViewer3d(ax, max_p, min_p):
+    """ OBB描画 """
 
     #直積：[smax, smin]*[tmax, tmin]*[umax, umin] <=> 頂点
     s_axis = np.vstack((max_p[0], min_p[0]))
@@ -164,7 +183,7 @@ def OBBViewer3d(ax, max_p, min_p):
     for i, v1 in enumerate(vertices_bit):
         for j, v2 in enumerate(vertices_bit):
             if np.count_nonzero(v1-v2) == 1:
-                x, y, z = line(vertices[i], vertices[j])
+                x, y, z = line3d(vertices[i], vertices[j])
                 ax.plot(x,y,z,marker=".",color="orange")
 
     #OBBの頂点の1つ
@@ -181,8 +200,8 @@ def OBBViewer3d(ax, max_p, min_p):
     ax.plot(Xmin,Ymin,Zmin,marker="X",linestyle="None",color="blue")
     ax.plot([vert_max[0], vert_min[0]],[vert_max[1], vert_min[1]],[vert_max[2], vert_min[2]],marker="o",linestyle="None",color="black")
 
-#点群を入力としてAABBを描画する
 def AABBViewer3d(ax, max_p, min_p):
+    """ AABB描画 """
 
     # [xmax, xmin]と[ymax, ymin]の直積 <=> 頂点
     x_axis = [max_p[0], min_p[0]]
@@ -191,94 +210,13 @@ def AABBViewer3d(ax, max_p, min_p):
 
     vertices = np.asarray(list(itertools.product(x_axis, y_axis, z_axis)))
 
-    #各頂点に対応するビットの列を作成
+    # 各頂点に対応するビットの列を作成
     bit = np.asarray([1, -1])
     vertices_bit = np.asarray(list(itertools.product(bit, bit, bit)))
 
-
-    #頂点同士のハミング距離が1なら辺を引く
+    # 頂点同士のハミング距離が1なら辺を引く
     for i, v1 in enumerate(vertices_bit):
         for j, v2 in enumerate(vertices_bit):
             if np.count_nonzero(v1-v2) == 1:
-                x, y, z = line(vertices[i], vertices[j])
+                x, y, z = line3d(vertices[i], vertices[j])
                 ax.plot(x,y,z,marker=".",color="orange")
-
-
-# ラベルの色分け
-def LabelViewer(ax, points, label_list, max_label):
-
-    colorlist = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf']
-
-    # ラベルの数
-    label_num = np.max(label_list)
-
-    # ラベルなしの点群を白でプロット
-
-    X, Y, Z = Disassemble3d(points[np.where(label_list == 0)])
-    ax.plot(X, Y, Z, marker=".",linestyle="None",color="white")
-
-
-    for i in range(1, label_num+1):
-        #同じラベルの点群のみにする
-        same_label_points = points[np.where(label_list == i)]
-
-        print("{}:{}".format(i, same_label_points.shape[0]))
-
-        #plot
-        X, Y, Z = Disassemble3d(same_label_points)
-        if i == max_label:       
-            ax.plot(X, Y, Z, marker="o",linestyle="None",color=colorlist[i%len(colorlist)])
-        else:
-            ax.plot(X, Y, Z, marker=".",linestyle="None",color=colorlist[i%len(colorlist)])
-
-#陰関数のグラフ描画
-#fn  ...fn(x, y, z) = 0の左辺
-#AABB_size ...AABBの各辺をAABB_size倍する
-def plot_implicit3d(ax, fn, points=None, AABB_size=2, bbox=(-2.5,2.5), contourNum=30):
-
-    if points is not None:
-        #AABB生成
-        max_p, min_p = buildAABB3d(points)
-
-        xmax, ymax, zmax = max_p[0], max_p[1], max_p[2]
-        xmin, ymin, zmin = min_p[0], min_p[1], min_p[2]
-
-        #AABBの各辺がAABB_size倍されるように頂点を変更
-        xmax = xmax + (xmax - xmin)/2 * AABB_size
-        xmin = xmin - (xmax - xmin)/2 * AABB_size
-        ymax = ymax + (ymax - ymin)/2 * AABB_size
-        ymin = ymin - (ymax - ymin)/2 * AABB_size
-        zmax = zmax + (zmax - zmin)/2 * AABB_size
-        zmin = zmin - (zmax - zmin)/2 * AABB_size
-
-    else:
-        xmin, xmax, ymin, ymax, zmin, zmax = bbox*3
-
-    A_X = np.linspace(xmin, xmax, 100) # resolution of the contour
-    A_Y = np.linspace(ymin, ymax, 100)
-    A_Z = np.linspace(zmin, zmax, 100)
-    B_X = np.linspace(xmin, xmax, 15) # number of slices
-    B_Y = np.linspace(ymin, ymax, 15)
-    B_Z = np.linspace(zmin, zmax, 15)
-    #A1,A2 = np.meshgrid(A,A) # grid on which the contour is plotted
-
-    for z in B_Z: # plot contours in the XY plane
-        X,Y = np.meshgrid(A_X, A_Y)
-        Z = fn(X,Y,z)
-        ax.contour(X, Y, Z+z, [z], zdir='z')
-        # [z] defines the only level to plot for this contour for this value of z
-
-    for y in B_Y: # plot contours in the XZ plane
-        X,Z = np.meshgrid(A_X, A_Z)
-        Y = fn(X,y,Z)
-        ax.contour(X, Y+y, Z, [y], zdir='y')
-
-    for x in B_X: # plot contours in the YZ plane
-        Y,Z = np.meshgrid(A_Y, A_Z)
-        X = fn(x,Y,Z)
-        ax.contour(X+x, Y, Z, [x], zdir='x')
-
-    #(拡大した)AABBの範囲に制限
-    ax.set_zlim3d(zmin,zmax)
-    ax.set_xlim3d(xmin,xmax)
-    ax.set_ylim3d(ymin,ymax)

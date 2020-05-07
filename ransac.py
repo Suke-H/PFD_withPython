@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 from method3d import *
 import figure3d as F3
 
-# 点群の中から図形にフィットする点のインデックスを返す
 def CountFitPoints(figure, points, normals, epsilon, alpha):
+    """ 点群の中から図形にフィットする点のインデックスを返す """
 
     X, Y, Z = Disassemble3d(points)
 
@@ -25,6 +25,22 @@ def CountFitPoints(figure, points, normals, epsilon, alpha):
     return index, len(index)
 
 def PlaneDetect(points, normals, epsilon, alpha):
+    """ 
+    RANSACにより平面検出
+
+    平面に"フィットする点"が一番多い平面を採用
+    フィット点の条件：
+    (平面との垂直距離 < epsilon) かつ (平面の法線と各点の法線との角度差 < alpha)
+
+    <入力>
+    points: 点群
+    normals: 法線
+    epsilon, alpha: しきい値
+
+    <出力>
+    最適平面のパラメータ、フィット点のインデックス、フィット点の数
+
+    """
     X, Y, Z = Disassemble3d(points)
 
     n = points.shape[0]
@@ -61,18 +77,9 @@ def PlaneDetect(points, normals, epsilon, alpha):
     # フィットしている点の数を数える
     Scores = [CountFitPoints(Planes[i], points, normals, epsilon, alpha)[1] for i in range(p.shape[0])]
 
-    return Planes[Scores.index(max(Scores))]
+    figure = Planes[Scores.index(max(Scores))]
 
-# 入力：点群、法線
-# 出力：最適平面のパラメータ、フィット点のインデックス
-def Ransac(points, normals, epsilon=0.05, alpha=np.pi/8):
-
-    X, Y, Z = Disassemble3d(points)
-
-    # 平面検出
-    figure = PlaneDetect(points, normals, epsilon, alpha)
-    
     # フィット点を抽出
     index, num = CountFitPoints(figure, points, normals, epsilon, alpha)
 
-    return figure, index, num
+    return figure, index, num   

@@ -8,6 +8,7 @@ from method2d import *
 import figure2d as F
 
 class person:
+    """ GAの個体クラス """
     def __init__(self, fig_type, figure):
         self.fig_type = fig_type
         self.figure = figure
@@ -16,22 +17,22 @@ class person:
         self.area = figure.CalcArea()
 
     def Profile(self):
+        """ 個体情報をプリントする関数 """
         print("fig_type: {}".format(self.fig_type))
         print("para: {}".format(self.figure.p))
         print("score: {}".format(self.score))
 
 def EntireGA(points2d, out_points, out_area, score_f, out_path, i):
-    """
-    3種類の図形単体GAを回してスコア最大の図形を選択
-    """
+    """ 3種類の図形単体GAを回してスコア最大の図形を選択 """
 
     # 円、正三角形、長方形でそれぞれ単体のGAを回す
+    print("円 検出開始")
     best_circle = SingleGA(points2d, out_points, out_area, score_f, out_path+"/GA/circle" + str(i) + ".png", 0, 
                             n_epoch=100, N=100, half_reset_num=10, all_reset_num=5)
-
+    print("\n正三角形 検出開始")
     best_tri = SingleGA(points2d, out_points, out_area, score_f, out_path+"/GA/tri" + str(i) + ".png", 1, 
                         n_epoch=300, N=100, half_reset_num=15, all_reset_num=9)
-
+    print("\n長方形 検出開始")
     best_rect = SingleGA(points2d, out_points, out_area, score_f, out_path+"/GA/rect" + str(i) + ".png", 2, 
                         n_epoch=600, N=100, half_reset_num=30, all_reset_num=10)
     
@@ -49,9 +50,7 @@ def SingleGA(points, out_points, out_area, score_f, imgPath, fig_type,
     n_epoch=300, N=100, save_num=5, tournament_size=10, 
     cross_rate=1, half_reset_num=10000, all_reset_num=10000):
 
-    """
-    1種類の図形単体のGA
-    """
+    """ 1種類の図形単体のGA """
 
     # reset指数
     half_num = 0
@@ -75,7 +74,7 @@ def SingleGA(points, out_points, out_area, score_f, imgPath, fig_type,
     result = []
 
     # AABB生成
-    max_p, min_p, _, l, _ = buildAABB2d(points)
+    max_p, min_p, l, _ = buildAABB2d(points)
 
     # 図形の種類ごとにN人クリーチャー作成
     people = CreateRandomPopulation(N, max_p, min_p, l, fig_type)
@@ -99,7 +98,7 @@ def SingleGA(points, out_points, out_area, score_f, imgPath, fig_type,
             # 突然変異させる人を選択
             mutate_index = np.random.choice(parent_num+1)
             # それ以外を交叉
-            cross_child = Crossover2(np.delete(winners, mutate_index), fig_type, max_p, min_p, l, cross_rate=cross_rate)
+            cross_child = Crossover(np.delete(winners, mutate_index), fig_type, max_p, min_p, l, cross_rate=cross_rate)
             # 突然変異
             #mutate_child = Mutate(winners[mutate_index], max_p, min_p, l, rate=mutate_rate)
 
@@ -167,8 +166,9 @@ def SingleGA(points, out_points, out_area, score_f, imgPath, fig_type,
 
     return result
 
-
 def CreateRandomPerson(fig_type, max_p, min_p, l):
+    """ 個体をランダム生成 """
+
     # 円
     if fig_type==0:
         #print("円")
@@ -210,12 +210,15 @@ def CreateRandomPerson(fig_type, max_p, min_p, l):
     return person(fig_type, figure)
     
 def CreateRandomPopulation(num, max_p, min_p, l, fig):
-    # ランダムに図形の種類を選択し、遺伝子たちを生成
+    """ ランダムに図形の種類を選択し、個体たちを生成 """
+
     population = np.array([CreateRandomPerson(fig, max_p, min_p, l) for i in range(num)])
 
     return population
 
 def Score(score_f, person, points, out_points, out_area):
+    """ 適応度(スコア)を計算 """
+
     # scoreFlagが立ってなかったらIoUを計算
     if person.scoreFlag == False:
         person.score = score_f(points, out_points, out_area, person.figure)
@@ -224,6 +227,8 @@ def Score(score_f, person, points, out_points, out_area):
     return person.score
 
 def Rank(score_f, people, points, out_points, out_area):
+    """ 集団をランク付け """
+
     # リストにスコアを記録していく
     score_list = [Score(score_f, people[i], points, out_points, out_area) for i in range(len(people))]
     # Scoreの大きい順からインデックスを読み上げ、リストに記録
@@ -231,8 +236,12 @@ def Rank(score_f, people, points, out_points, out_area):
     # index_listの順にPeopleを並べる
     return np.array(people)[index_list], np.array(score_list)[index_list]
 
-# 図形パラメータのどれかを変更(今のところ図形の種類は変えない)
 def Mutate(person, max_p, min_p, l, rate=1.0):
+    """ 
+    突然変異を実装
+    図形パラメータの1つを変更
+    """
+
     # rateの確率で突然変異
     if np.random.rand() <= rate:
         #personに直接書き込まないようコピー
@@ -288,8 +297,11 @@ def Mutate(person, max_p, min_p, l, rate=1.0):
 
     return person
 
-# ブレンド交叉を採用
-def Crossover2(parents, fig, max_p, min_p, l, cross_rate):
+def Crossover(parents, fig, max_p, min_p, l, cross_rate):
+    """
+    交叉を実装
+    シンプレックス(SPX)交叉を採用
+    """
 
     if np.random.rand() >= cross_rate:
         return np.random.choice(parents)
@@ -327,12 +339,14 @@ def Crossover2(parents, fig, max_p, min_p, l, cross_rate):
     return person(fig, figure)    
 
 def DrawFig(points, person, out_points, out_area, path, AABB_size=1.5):
+    """ GAでの推定図形の結果をプロット """
+
     # 正解点群プロット
     X1, Y1= Disassemble2d(points)
     plt.plot(X1, Y1, marker=".",linestyle="None",color="yellow")
 
     # 推定図形プロット
-    max_p, min_p, _, _, _ = buildAABB2d(points)
+    max_p, min_p, _, _= buildAABB2d(points)
     
     AABB = [min_p[0], max_p[0], min_p[1], max_p[1]]
 

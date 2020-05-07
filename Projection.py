@@ -8,6 +8,7 @@ def Plane2DProjection(points, plane):
     1. 3D点群を平面に落とす
     2. 2D点群に変換
     """
+
     N = points.shape[0]
 
     # 平面のパラメータ
@@ -36,9 +37,8 @@ def Plane2DProjection(points, plane):
     return plane_points, UVvector, u, v, O
 
 def Plane3DProjection(points2d, para, u, v, O):
-    """
-    2D点群が平面上にあると考え、3D点群に変換
-    """
+    """ 2D点群が平面上にあると考え、3D点群に変換 """
+    
     # 三次元に射影
     uv = np.array([u, v])
     points3d = np.dot(points2d, uv) + np.array([O for i in range(points2d.shape[0])])

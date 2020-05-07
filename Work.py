@@ -8,78 +8,12 @@ import os
 from method2d import *
 from method3d import *
 from PreProcess import NormalEstimate
-from Ransac import Ransac
+from Ransac import PlaneDetect
 from Projection import Plane2DProjection, Plane3DProjection
 from GA import EntireGA
-from MakeDataset import MakePointSet, MakePointSet3D, MakeSign3D
+from MakeDataset import MakeSign3D
 from MakeOuterFrame import MakeOuterFrame
-from CrossNum import CheckCrossNum
 from Score import CalcScore
-
-def SelectIndex(index1, index2):
-    """
-    点群-> [平面検出] -> index1 -> [外枠生成] -> index2
-
-    index1, 2には生き残った点群のインデックスが格納されてるので、
-    最終的に生き残るインデックスのリストを出力
-
-    # 入力点群: [x0,x1,x2,x3,x4,x5,x6,x7]
-    # index1:  [ 1, 1, 1, 1, 0, 1, 1, 0]
-    #                     ↓
-    # 抽出:    [x0,x1,x2,x3,   x5,　x6 ]
-    #                     ↓
-    # index2:  [ 1, 1, 1, 1,    0, 1   ]
-    # 抽出:    [x0,x1,x2,x3,     　x6  ]
-    #                     ↓
-    # 出力: 　 [ 1, 1, 1, 1, 0, 0, 1, 0]
-
-    """
-
-    result = []
-    j = 0
-    for i in index1:
-        if i == False:
-            result.append(False)
-
-        else:
-            if index2[j] == True:
-                result.append(True)
-            else:
-                result.append(False)
-            j+=1
-
-    return np.array(result)
-
-
-def ConfusionLabeling(trueIndex, optiIndex):
-
-    """
-    trueIndex, optiIndex には点群の各点に対応して 0:ノイズ、1:実際の点群 が格納されている
-    (trueIndex: 正解, optiIndex: 推定結果)
-
-    trueIndex, optiIndexにより混合行列を生成
-    (点群の各点に対応してTP:1, TN:2, FP:3, FN:4を格納したリストを出力)
-
-       true  opti
-    TP: 1  ->  1
-    TF: 0  ->  0
-    FP: 0  ->  1
-    FN: 1  ->  0
-    """
-
-    confusionIndex = []
-
-    for (true, opti) in zip(trueIndex, optiIndex):
-        if true==True and opti==True:
-            confusionIndex.append(1)
-        elif true==False and opti==False:
-            confusionIndex.append(2)
-        elif true==False and opti==True:
-            confusionIndex.append(3)
-        elif true==True and opti==False:
-            confusionIndex.append(4)
-
-    return np.array(confusionIndex)
 
 def View(points3d, trueIndex,  # 点群
         para2d, fig_type, plane_para, u, v, O, AABB2d, # 正解図形
@@ -100,29 +34,67 @@ def View(points3d, trueIndex,  # 点群
 
     # 正解図形、検出図形の境界線を描画
 
+    # print用
+    goal_list = []
+    opti_list = []
+
     # 正解図形
     if fig_type == 0:
         fig = F2.circle(para2d)
+        items = ["半径", "中心座標"]
+        goal_list.append(para2d[2])
+        
     elif fig_type == 1:
         fig = F2.tri(para2d)
+        items = ["半径", "中心座標"]
+        goal_list.append(para2d[2])
+
     else:
         fig = F2.rect(para2d)
+        items = ["短辺", "長辺", "中心座標"]
+        goal_list.append(para2d[2])
+        goal_list.append(para2d[3])
 
     goal2d = ContourPoints2d(fig.f_rep, AABB2d, grid_step=1000)
     center, goal3d = Plane3DProjection(goal2d, para2d, u, v, O)
+    goal_list.append(center)
     GX, GY, GZ = Disassemble3d(goal3d)
 
     # 検出図形
     if opti_fig_type == 0:
         opti_fig = F2.circle(opti_para2d)
+        opti_list.append(opti_para2d[2])
+
     elif opti_fig_type == 1:
         opti_fig = F2.tri(opti_para2d)
+        opti_list.append(opti_para2d[2])
+
     else:
         opti_fig = F2.rect(opti_para2d)
+        opti_list.append(opti_para2d[2])
+        opti_list.append(opti_para2d[3])
 
     opti2d = ContourPoints2d(opti_fig.f_rep, opti_AABB2d, grid_step=1000)
     opti_center, opti3d = Plane3DProjection(opti2d, opti_para2d, opti_u, opti_v, opti_O)
+    opti_list.append(opti_center)
     OX, OY, OZ = Disassemble3d(opti3d)
+
+    # パラメータをprint
+    for (item, goal, opti) in zip(items, goal_list, opti_list):
+        print("{}: 正解図形{}, 検出図形{} (mm)".format(item, goal, opti))
+
+    # 平面の角度差 算出
+    n_goal = np.array([plane_para[0], plane_para[1], plane_para[2]])
+    n_opt = np.array([opti_plane_para[0], opti_plane_para[1], opti_plane_para[2]])
+    angle = np.arccos(np.dot(n_opt, n_goal))
+    angle = angle / np.pi * 180
+
+    # 0と180が角度差最小、90が最大なのでmin(angle, 180-angle)を表示
+    angle = min(angle, 180-angle)
+    print("2つの図形のある平面の角度差:{}°\n".format(angle))
+    
+    print("点群、正解図形、検出図形を表示")
+    print("(オレンジが点群、赤が正解図形、青が検出図形)")
 
     # プロット
     ax.plot(GX, GY, GZ, marker=".", linestyle='None', color="red")
@@ -133,7 +105,7 @@ def View(points3d, trueIndex,  # 点群
     plt.show()
     plt.close()   
 
-def simulation(sign_type, scale, density, noise_rate, error_rate, error_step, out_path):
+def simulation(sign_type, scale, density, noise_rate, out_path):
     """  シミュレーションにより生成した点群から平面図形検出 """
 
     # 一度実行したことあればiだけ定義
@@ -157,9 +129,13 @@ def simulation(sign_type, scale, density, noise_rate, error_rate, error_step, ou
         os.mkdir(out_path+"add")
         os.mkdir(out_path+"contour")
         os.mkdir(out_path+"GA")
+        os.mkdir(out_path+"view_data")
+
+    os.mkdir(out_path+"view_data/"+str(i))
 
     # シミュレーションにより点群生成
-    center, para2d, plane_para, points3d, AABB3d, AABB2d, trueIndex, u, v, O = MakeSign3D(sign_type, scale, density, noise_rate, error_rate, error_step)
+    para2d, fig_type, AABB2d, plane_para, points3d, trueIndex, u, v, O = MakeSign3D(sign_type, scale, density, noise_rate)
+    print("点群数: {}".format(points3d.shape[0]))
 
     if sign_type == 0:
         fig_type = 0
@@ -168,53 +144,38 @@ def simulation(sign_type, scale, density, noise_rate, error_rate, error_step, ou
     else:
         fig_type = 2
 
-    if fig_type != 2:
-        items = ["type", "pos", "size", "angle", "TP", "TN", "FP", "FN", "acc", "prec", "rec", "F_measure"]
-
-    else:
-        items = ["type", "pos", "size1", "size2", "angle", "TP", "TN", "FP", "FN", "acc", "prec", "rec", "F_measure"]
-
-    rec_list = []
-
-    # AABB(Align-Axis Bounding Box)の対角線の長さ抽出
+    # AABB(Axis Aligned Bounding Box)の対角線の長さ抽出
     _, _, l = buildAABB3d(points3d)
 
     # 法線推定
     normals = NormalEstimate(points3d)
 
+    print("平面検出 開始")
     start = time.time()
 
     # 平面検出
-    opti_plane, fit_index, _ = Ransac(points3d, normals, epsilon=0.01*l, alpha=np.pi/8)
+    opti_plane, fit_index, fit_num = PlaneDetect(points3d, normals, epsilon=0.01*l, alpha=np.pi/8)
 
+    print("平面にフィットした点群数: {}".format(fit_num))
     end = time.time()
-    print("平面検出:{}m".format((end-start)/60))
-
-    # 平面にフィットした点のインデックス(points3dに対応したインデックスのリスト)
-    index1 = np.array([True if i in fit_index else False for i in range(points3d.shape[0])])
+    
+    print("平面検出 終了\ntime: {}s".format(end-start))
+    print("\n==========================================\n")
 
     # 点群2D変換
     _, points2d, opti_u, opti_v, opti_O = Plane2DProjection(points3d[fit_index], opti_plane)
     opti_plane_para = opti_plane.p
 
+    print("外枠生成 開始")
     start = time.time()
 
     # 外枠生成
-    out_points, out_area = MakeOuterFrame(points2d, out_path, i, 
-                                        dilate_size=50, close_size=20, open_size=70, add_size=20)
+    out_points, points2d, out_area = MakeOuterFrame(points2d, out_path, i, 
+                                    dilate_size=50, close_size=20, open_size=70, add_size=20)
 
     end = time.time()
-    print("外枠生成:{}m".format((end-start)/60))
-
-    # 輪郭抽出に失敗したら終了
-    if out_points is None:
-        rec_list.extend(["×" for i in range(len(items))])
-
-        return items, rec_list
-
-    # 外枠内の点群だけにする
-    index2 = np.array([CheckCrossNum(points2d[i], out_points) for i in range(points2d.shape[0])])
-    points2d = points2d[index2]
+    print("外枠生成 終了\ntime: {}s".format(end-start))
+    print("\n==========================================\n")
 
     # GAにより最適パラメータ出力
     best, opti_fig_type = EntireGA(points2d, out_points, out_area, CalcScore, out_path, i)
@@ -222,14 +183,13 @@ def simulation(sign_type, scale, density, noise_rate, error_rate, error_step, ou
 
     # 検出図形の中心座標を3次元に射影
     opti_para2d = best.figure.p
-    opti_center, _ = Plane3DProjection(points2d, opti_para2d, opti_u, opti_v, opti_O)
-    print(opti_fig_type, opti_para2d)
-
     #########################################################################
 
     # 2D点群でのAABB生成
-    max_p, min_p, _, _, _ = buildAABB2d(points2d)
+    max_p, min_p, _, _ = buildAABB2d(points2d)
     opti_AABB2d = [min_p[0], max_p[0], min_p[1], max_p[1]]
+
+    print("\n==========================================\n")
 
     # 表示
     View(points3d, trueIndex,  # 点群
@@ -237,82 +197,108 @@ def simulation(sign_type, scale, density, noise_rate, error_rate, error_step, ou
         opti_para2d, opti_fig_type, opti_plane_para, # 検出図形
         opti_u, opti_v, opti_O, opti_AABB2d)
 
-    # 図形の種類、位置、大きさ、平面、形の5つの指標で評価
+    # 後で表示するために保存
+    np.save(out_path+"view_data/"+str(i)+"/points3d", points3d)
+    np.save(out_path+"view_data/"+str(i)+"/trueIndex", trueIndex)
 
-    # 図形の種類：図形の種類が一致しているか
+    np.save(out_path+"view_data/"+str(i)+"/para2d", np.array(para2d))
+    np.save(out_path+"view_data/"+str(i)+"/plane_para", np.array(plane_para))
+    np.save(out_path+"view_data/"+str(i)+"/u", u)
+    np.save(out_path+"view_data/"+str(i)+"/v", v)
+    np.save(out_path+"view_data/"+str(i)+"/O", O)
+    np.save(out_path+"view_data/"+str(i)+"/AABB2d", np.array(AABB2d))
 
-    # 一致してなかったら(type=-1)これ以上評価しない
-    if fig_type != opti_fig_type:
-        rec_list.append(-1)
-        rec_list.extend(["×" for i in range(len(items)-1)])
+    np.save(out_path+"view_data/"+str(i)+"/opti_para2d", np.array(opti_para2d))
+    np.save(out_path+"view_data/"+str(i)+"/opti_plane_para", np.array(opti_plane_para))
+    np.save(out_path+"view_data/"+str(i)+"/opti_u", opti_u)
+    np.save(out_path+"view_data/"+str(i)+"/opti_v", opti_v)
+    np.save(out_path+"view_data/"+str(i)+"/opti_O", opti_O)
+    np.save(out_path+"view_data/"+str(i)+"/opti_AABB2d", np.array(opti_AABB2d))
 
-        return items, rec_list
+def review(root_path, i):
+    """
+    一度平面図形検出した結果を3Dで再表示する
 
-    # 一致した場合(type=1)評価を続ける
-    rec_list.append(1)
+    root_path: out_pathと同じパスにする
+    i: 何番目の検出結果かを選択
+    """
+    # 読み込み
+    points3d = np.load(root_path+"view_data/"+str(i)+"/points3d.npy")
+    trueIndex = np.load(root_path+"view_data/"+str(i)+"/trueIndex.npy")
 
-    # 位置: 3次元座標上の中心座標の距離
-    pos = LA.norm(center - opti_center)
-    rec_list.append(pos)
+    para2d = np.load(root_path+"view_data/"+str(i)+"/para2d.npy")
+    plane_para = np.load(root_path+"view_data/"+str(i)+"/plane_para.npy")
+    u = np.load(root_path+"view_data/"+str(i)+"/u.npy")
+    v = np.load(root_path+"view_data/"+str(i)+"/v.npy")
+    O = np.load(root_path+"view_data/"+str(i)+"/O.npy")
+    AABB2d = np.load(root_path+"view_data/"+str(i)+"/AABB2d.npy")
 
-    # 大きさ: 円と三角形ならr, 長方形なら長辺と短辺
-    if fig_type != 2:
-        size = abs(para2d[2] - opti_para2d[2])
-        rec_list.append(size)
+    opti_para2d = np.load(root_path+"view_data/"+str(i)+"/opti_para2d.npy")
+    opti_plane_para = np.load(root_path+"view_data/"+str(i)+"/opti_plane_para.npy")
+    opti_u = np.load(root_path+"view_data/"+str(i)+"/opti_u.npy")
+    opti_v = np.load(root_path+"view_data/"+str(i)+"/opti_v.npy")
+    opti_O = np.load(root_path+"view_data/"+str(i)+"/opti_O.npy")
+    opti_AABB2d = np.load(root_path+"view_data/"+str(i)+"/opti_AABB2d.npy")
 
+    if len(para2d) == 3:
+        fig_type = 0
+    elif len(para2d) == 4:
+        fig_type = 1
     else:
-        if para2d[2] > para2d[3]:
-            long_edge, short_edge = para2d[2], para2d[3]
-        else:
-            long_edge, short_edge = para2d[3], para2d[2]
+        fig_type = 2
 
-        if opti_para2d[2] > opti_para2d[3]:
-            opti_long_edge, opti_short_edge = opti_para2d[2], opti_para2d[3]
-        else:
-            opti_long_edge, opti_short_edge = opti_para2d[3], opti_para2d[2]
+    if len(opti_para2d) == 3:
+        opti_fig_type = 0
+    elif len(opti_para2d) == 4:
+        opti_fig_type = 1
+    else:
+        opti_fig_type = 2
 
-        size1 = abs(long_edge - opti_long_edge)
-        size2 = abs(short_edge - opti_short_edge)
-        rec_list.append(size1)
-        rec_list.append(size2)
+    # 表示
+    View(points3d, trueIndex,  # 点群
+        para2d, fig_type, plane_para, u, v, O, AABB2d, # 正解図形
+        opti_para2d, opti_fig_type, opti_plane_para, # 検出図形
+        opti_u, opti_v, opti_O, opti_AABB2d)
 
-    # 平面：平面の法線の角度
-    n_goal = np.array([plane_para[0], plane_para[1], plane_para[2]])
-    n_opt = np.array([opti_plane_para[0], opti_plane_para[1], opti_plane_para[2]])
-    angle = np.arccos(np.dot(n_opt, n_goal))
-    angle = angle / np.pi * 180
-    rec_list.append(angle)
+def main():
+    """
+    シミュレーション点群を生成し、それを入力に平面図形を検出
 
-    # 形: 混合行列で見る
-    X, Y = Disassemble2d(points2d)
-    index3 = (best.figure.f_rep(X, Y) >= 0)
-    estiIndex = SelectIndex(index1, SelectIndex(index2, index3))
-    confusionIndex = ConfusionLabeling(trueIndex, estiIndex)
+    <引数>
+    sign_type: 
+    0: 半径0.3mの円
+    1: 1辺0.8mの正三角形
+    2: 1辺0.9mの正方形
+    3. 1辺0.45mのひし形(てか正方形)
+    4. 1辺が0.05～1のどれかの長方形
 
-    TP = np.count_nonzero(confusionIndex==1)
-    TN = np.count_nonzero(confusionIndex==2)
-    FP = np.count_nonzero(confusionIndex==3)
-    FN = np.count_nonzero(confusionIndex==4)
+    scale: sign_typeのスケールを標準とした倍率
+    noise_rate: 全点群数に対するノイズ点群の割合
 
-    acc = (TP+TN)/(TP+TN+FP+FN)
-    prec = TP/(TP+FP)
-    rec = TP/(TP+FN)
-    F_measure = 2*prec*rec/(prec+rec)
+    out_path: 出力先のフォルダパス
+    
+    <出力>
+    origin: 元画像(2D点群を画像に変換したもの)
+    dil: 膨張演算
+    open: オープニング演算
+    close: クロージング演算
+    add: 膨張演算
+    contour: 外枠の生成結果(オレンジが点群、赤が外枠)
+    GA: GA図形検出の結果(オレンジが点群、赤が推定図形)
+    view_data: 3Dグラフで再表示するための保存フォルダ
 
-    rec_list.extend([TP, TN, FP, FN, acc, prec, rec, F_measure])
+    """
 
-    return items, rec_list
+    # 出力先のフォルダパス
+    out_path = "data/sim2/"
 
-# test3D(1, 1, 500, 10, out_path="data/EntireTest/test2/")
-# write_data3D(0, 500, 0.2, 0.4, 0.005, 20, "data/dataset/3D/4/")
-# write_any_data3d(20, "data/dataset/3D/square0.45_noise/")
-# use_any_data3D("data/dataset/3D/square0.45_noise/", "data/EntireTest/square0.45_noise/")
-# CheckView(4, 0, 0, "data/dataset/3D/0_500_test/", "data/EntireTest/testtest/")
-# use_any_data3D("data/dataset/rect0.9_noise/", "data/result/rect0.9_noise/")
+    sign_type, scale, density, noise_rate = 0, 1, 2500, 0.2
 
-sign_type, scale, density, noise_rate, error_rate, error_step  = 1, 1, 2500, 0.2, 0, 0
-out_path = "data/result/sim2/"
-items, rec_list = simulation(sign_type, scale, density, noise_rate, error_rate, error_step, out_path)
-print(items, rec_list)
-for item, rec in zip(items, rec_list):
-    print("{}: {}".format(item, rec))
+    # 平面図形検出
+    simulation(sign_type, scale, density, noise_rate, out_path)
+
+    # # 再表示(第二引数：何番目の検出結果を表示するか(0始まり))
+    # review(out_path, 2)
+
+if __name__ == "__main__":
+    main()

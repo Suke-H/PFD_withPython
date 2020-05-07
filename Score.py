@@ -29,7 +29,7 @@ def CalcScore(points, out_contour, out_area, figure, flag=False):
     Score = inの密度 - outの密度
     ただしAABBに対して図形(=inの面積)が小さすぎ&大きすぎたら大幅減点
     """
-    max_p, min_p, _, l, AABB_area = buildAABB2d(points)
+    max_p, min_p, l, AABB_area = buildAABB2d(points)
 
     if len(figure.p) == 3:
         fig = 0

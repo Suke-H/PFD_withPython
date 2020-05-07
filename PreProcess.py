@@ -3,9 +3,7 @@ import open3d
 from method3d import *
 
 def NormalEstimate(points):
-	#objファイルから点群取得
-    # points = loadOBJ(path)
-    print("points:{}".format(points.shape[0]))
+    """ 法線推定 """
 
     #点群をnp配列⇒open3d形式に
     pointcloud = open3d.PointCloud()
@@ -28,10 +26,5 @@ def NormalEstimate(points):
 
 	#法線をnumpyへ変換
     normals = np.asarray(pointcloud.normals)
-
-	#OBB生成
-	#(最適化の条件にも使いたい)
-    # _, _, length = buildOBB3d(points)
-    # print("OBB_length: {}".format(length))
     
     return normals
